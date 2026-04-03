@@ -7,6 +7,7 @@ from hand import draw_hand
 
 OUTPUT_FILE = "hands.json"
 DEFAULT_RUNS = 300
+STATS_ONLY_THRESHOLD = 10_000
 
 
 def simulate(hand_size: int, runs: int, pool: list[str]) -> list[list[str]]:
@@ -56,17 +57,11 @@ def run() -> None:
     def hand_json(hand: list[str]) -> list[dict]:
         return [{"card": c, "starter": c in starters} for c in hand]
 
+    stats_only = runs > STATS_ONLY_THRESHOLD
+
     # --- JSON output ---
-    output = {
-        "settings": {"hand_size": hand_size, "runs": runs},
-        "hands": [
-            {
-                "id": i + 1,
-                "cards": hand_json(h),
-                "has_starter": has_starter(h, starters),
-            }
-            for i, h in enumerate(hands)
-        ],
+    output: dict = {
+        "settings": {"hand_size": hand_size, "runs": runs, "stats_only": stats_only},
         "stats": {
             "unique_hands": len(counter),
             "no_starter": {
@@ -88,10 +83,23 @@ def run() -> None:
         },
     }
 
+    if not stats_only:
+        output["hands"] = [
+            {
+                "id": i + 1,
+                "cards": hand_json(h),
+                "has_starter": has_starter(h, starters),
+            }
+            for i, h in enumerate(hands)
+        ]
+
     with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
         json.dump(output, f, ensure_ascii=False, indent=2)
 
-    print(f"Saved {runs} hands to {OUTPUT_FILE}\n")
+    if stats_only:
+        print(f"Saved stats to {OUTPUT_FILE} (hands omitted, run count > {STATS_ONLY_THRESHOLD:,})\n")
+    else:
+        print(f"Saved {runs} hands to {OUTPUT_FILE}\n")
 
     print(f"Unique hand combinations : {len(counter)}")
     print(f"Hands without a starter  : {no_starter_count}/{runs} ({no_starter_count/runs:.1%})")
